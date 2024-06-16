@@ -1,5 +1,6 @@
 jQuery(document).ready(function($) {
-    // Handle click event to show comment form
+    var xPos, yPos; // 座標の定義
+
     $(document).on('click', function(event) {
         // Check if the click target is not inside the comment form
         if (!$(event.target).closest('#wpsc-comment-form').length && !$(event.target).is('#comment')) {
@@ -7,19 +8,14 @@ jQuery(document).ready(function($) {
             $('#wpsc-comment-form-container').remove();
 
             // Get click coordinates
-            var xPos = event.pageX;
-            var yPos = event.pageY;
+            xPos = event.pageX;
+            yPos = event.pageY;
 
             // Create comment form and append to body
             var commentForm = '<div id="wpsc-comment-form-container" class="speech-bubble" style="left: ' + xPos + 'px; top: ' + yPos + 'px;">';
             commentForm += '<div id="wpsc-comment-form">';
-            commentForm += '<form id="commentform" action="' + wpsc_vars.comment_post_url + '" method="post">';
-            commentForm += '<textarea id="comment" name="comment" rows="4"></textarea><br/>';
-            commentForm += '<input type="submit" name="submit" value="Post Comment"/>';
-            commentForm += '<input type="hidden" name="comment_post_ID" value="' + wpsc_vars.comment_post_id + '"/>';
-            commentForm += '<?php comment_id_fields(); ?>';
-            commentForm += '</form>';
-            commentForm += '<button id="wpsc-close-form">Close</button>';
+            commentForm += $('#respond').html(); // Use existing comment form HTML
+            commentForm += '<button id="wpsc-close-form">Close</button>'; // Add close button
             commentForm += '</div>';
             commentForm += '</div>';
             $('body').append(commentForm);
@@ -29,41 +25,50 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Handle form submission
-    $(document).on('submit', '#commentform', function(event) {
-        event.preventDefault(); // Prevent default form submission
-
-        var formData = $(this).serialize(); // Serialize form data
-        var formAction = $(this).attr('action'); // Form action URL
-
-        // Submit the form via Ajax
-        $.ajax({
-            type: 'POST',
-            url: formAction,
-            data: formData,
-            success: function(response) {
-                // Optionally, handle success response (e.g., display success message)
-                alert('Comment submitted successfully!');
-                $('#wpsc-comment-form-container').fadeOut(200, function() {
-                    $(this).remove();
-                });
-            },
-            error: function(xhr, status, error) {
-                // Optionally, handle error response (e.g., display error message)
-                alert('Comment submission failed.');
-            }
-        });
-    });
-
-    // Close comment form when close button is clicked
-    $(document).on('click', '#wpsc-close-form', function(event) {
+    // Handle click on close button
+    $(document).on('click', '#wpsc-close-form', function() {
         $('#wpsc-comment-form-container').fadeOut(200, function() {
             $(this).remove();
         });
     });
 
-    // Prevent form from closing if clicked inside form
-    $(document).on('click', '#wpsc-comment-form', function(event) {
-        event.stopPropagation(); // Prevent click event from bubbling up
+    // Handle form submission
+    $(document).on('submit', '#commentform', function(e) {
+        e.preventDefault();
+
+        var formData = $(this).serialize();
+        var commentContent = $('#comment').val();
+        var commentLink = ' <a href="#" class="wpsc-jump-link">[ジャンプ]</a>'; // Create jump link
+
+        $.ajax({
+            url: wpsc_vars.comment_post_url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                // Append jump link to comment content and save
+                var newComment = '<p>' + commentContent + commentLink + '</p>';
+                $.post(wpsc_vars.comment_post_url, {
+                    action: 'wpsc_save_comment',
+                    comment_content: newComment,
+                    comment_x_pos: xPos,
+                    comment_y_pos: yPos
+                });
+
+                // Remove comment form container
+                $('#wpsc-comment-form-container').fadeOut(200, function() {
+                    $(this).remove();
+                });
+            }
+        });
+    });
+
+    // Handle jump link click to scroll to comment position
+    $(document).on('click', '.wpsc-jump-link', function(e) {
+        e.preventDefault();
+        var commentContainer = $(this).closest('.wpsc-comment-container');
+        var commentPosition = commentContainer.offset().top;
+        $('html, body').animate({
+            scrollTop: commentPosition
+        }, 500);
     });
 });
